@@ -1,0 +1,214 @@
+/******************************************************************************
+ * PeopleCode: JOB Component - COMPRATE Field Validation
+ * Purpose: Validate compensation rate changes against salary band configuration
+ *
+ * RECOMMENDED EVENT: SaveEdit (Component Record)
+ * Alternative: SavePreChg (Component Record)
+ *
+ * EVENT SELECTION RATIONALE:
+ * -------------------------
+ * SaveEdit Event (RECOMMENDED):
+ *   - Fires before SavePreChg during the save process
+ *   - Allows validation of all changes before database commit
+ *   - Can access both old and new values using PriorValue()
+ *   - Can prevent save by returning False or displaying error
+ *   - Best for validations that should block the transaction
+ *
+ * SavePreChg Event (ALTERNATIVE):
+ *   - Fires after SaveEdit but before database update
+ *   - Good for audit trail inserts (JPM_JP_ITEMS)
+ *   - Cannot prevent the save (too late in the process)
+ *   - Use if you want to log the violation but allow the save
+ *
+ * FieldChange Event (NOT RECOMMENDED):
+ *   - Fires immediately when field value changes in UI
+ *   - Too early - user might change value again before save
+ *   - Cannot access database for validation reliably
+ *   - Would execute multiple times unnecessarily
+ *
+ * RECOMMENDATION: Use SaveEdit for validation + error prevention
+ *                 Add SavePreChg for JPM_JP_ITEMS insert if needed
+ *
+ ******************************************************************************/
+
+/******************************************************************************
+ * EVENT: SaveEdit (on JOB Component Record - typically JOB or PS_JOB)
+ * LOCATION: Component Record PeopleCode
+ ******************************************************************************/
+
+import PT_RCF:PSMessage;
+
+/* Function to validate COMPRATE against salary band configuration */
+Function ValidateComprate(&rs As Record) Returns boolean;
+
+   Local number &oldComprate, &newComprate, &maxSalary;
+   Local string &labourAgreement, &emplid, &emplrcd;
+   Local boolean &comprateChanged = False;
+   Local SQL &sqlConfig;
+   Local boolean &isValid = True;
+
+   /* Get the COMPRATE field - adjust field name based on your JOB record structure */
+   Local Field &fldComprate = &rs.GetField(Field.COMPRATE);
+
+   /* Check if COMPRATE field exists and has changed */
+   If &fldComprate <> Null Then
+      &newComprate = &fldComprate.Value;
+      &oldComprate = &fldComprate.PriorValue;
+
+      /* Check if the value has actually changed */
+      If &newComprate <> &oldComprate Then
+         &comprateChanged = True;
+
+         /* Get additional context fields - adjust based on your JOB record structure */
+         &emplid = &rs.GetField(Field.EMPLID).Value;
+         &emplrcd = &rs.GetField(Field.EMPL_RCD).Value;
+
+         /* Get labour agreement - adjust based on where this is stored in your JOB record */
+         /* Common field names: LABOUR_AGREEMENT, SAL_ADMIN_PLAN, UNION_CD, etc. */
+         If &rs.GetField(Field.LABOUR_AGREEMENT) <> Null Then
+            &labourAgreement = &rs.GetField(Field.LABOUR_AGREEMENT).Value;
+         Else
+            /* Fallback if labour agreement is not on JOB record directly */
+            /* May need to join with another table like JOBCODE_TBL or POSITION_DATA */
+            MessageBox(0, "", 0, 0, "Labour Agreement not found for validation. Please configure.");
+            Return True; /* Allow save if config is missing */
+         End-If;
+
+         /* Query the salary band configuration table */
+         /* Adjust table and field names based on your actual configuration table */
+         &sqlConfig = CreateSQL("SELECT MAX_SALARY FROM PS_SAL_BAND_CONFIG WHERE LABOUR_AGREEMENT = :1", &labourAgreement);
+
+         If &sqlConfig.Fetch(&maxSalary) Then
+
+            /* Validate: Check if new comprate exceeds maximum salary */
+            If &newComprate > &maxSalary Then
+
+               /* Salary exceeds maximum - Insert audit record in JPM_JP_ITEMS */
+               Local SQL &sqlInsert;
+               Local string &itemType = "SRK_OVT_LOCK";
+               Local date &currentDate = %Date;
+               Local time &currentTime = %Time;
+
+               /* Generate unique sequence for ITEM_NBR if needed */
+               Local number &nextItemNbr = GetNextItemNumber(); /* Custom function - see below */
+
+               /* Insert into JPM_JP_ITEMS table */
+               /* Adjust field names based on your actual JPM_JP_ITEMS table structure */
+               &sqlInsert = CreateSQL("INSERT INTO PS_JPM_JP_ITEMS (EMPLID, EMPL_RCD, ITEM_TYPE, ITEM_NBR, COMPRATE, MAX_SALARY, LABOUR_AGREEMENT, CREATE_DTTM, STATUS) VALUES (:1, :2, :3, :4, :5, :6, :7, %CurrentDateTimeIn, 'N')");
+
+               &sqlInsert.Execute(&emplid, &emplrcd, &itemType, &nextItemNbr, &newComprate, &maxSalary, &labourAgreement);
+
+               /* Display error message and prevent save */
+               MessageBox(0, "", 0, 0, "Compensation Rate " | String(&newComprate) | " exceeds maximum salary " | String(&maxSalary) | " for Labour Agreement " | &labourAgreement | ". A lock record has been created for review. (Item Type: " | &itemType | ")");
+
+               /* Return False to prevent the save */
+               &isValid = False;
+
+            End-If;
+
+         Else
+            /* No salary band configuration found for this labour agreement */
+            MessageBox(0, "", 0, 0, "No salary band configuration found for Labour Agreement: " | &labourAgreement | ". Cannot validate compensation rate.");
+            /* Decide whether to allow or block save when config is missing */
+            /* Option 1: Return True to allow save */
+            /* Option 2: Return False to block save and force configuration */
+            Return True; /* Currently allowing save if no config exists */
+         End-If;
+
+      End-If;
+   End-If;
+
+   Return &isValid;
+
+End-Function;
+
+/******************************************************************************
+ * Helper Function: Get Next Item Number for JPM_JP_ITEMS
+ ******************************************************************************/
+Function GetNextItemNumber() Returns number;
+   Local SQL &sqlSeq;
+   Local number &nextNbr = 1;
+
+   /* Option 1: Use PeopleSoft sequence object if available */
+   /* &nextNbr = GetNextSeqNbr("JPM_ITEM_SEQ"); */
+
+   /* Option 2: Query max value and increment */
+   &sqlSeq = CreateSQL("SELECT COALESCE(MAX(ITEM_NBR), 0) + 1 FROM PS_JPM_JP_ITEMS");
+   If &sqlSeq.Fetch(&nextNbr) Then
+      /* Successfully retrieved next number */
+   Else
+      &nextNbr = 1;
+   End-If;
+
+   Return &nextNbr;
+End-Function;
+
+/******************************************************************************
+ * MAIN PEOPLECODE - Place this in SaveEdit Event
+ ******************************************************************************/
+
+/* Get current component record */
+Local Record &recJob = GetRecord(Record.JOB); /* Adjust record name as needed */
+
+/* Validate comprate */
+If Not ValidateComprate(&recJob) Then
+   /* Validation failed - SaveEdit returns false to prevent save */
+   /* The MessageBox in the function already displayed the error */
+End-If;
+
+
+/******************************************************************************
+ * CONFIGURATION REQUIREMENTS:
+ *
+ * 1. Salary Band Configuration Table (e.g., PS_SAL_BAND_CONFIG):
+ *    - LABOUR_AGREEMENT (String) - Key field
+ *    - MAX_SALARY (Number) - Maximum salary for the band
+ *    - MIN_SALARY (Number) - Optional: Minimum salary
+ *    - CURRENCY_CD (String) - Optional: Currency code
+ *    - EFFDT (Date) - Optional: Effective date for history
+ *
+ * 2. JPM_JP_ITEMS Table Structure (adjust INSERT statement based on actual structure):
+ *    - EMPLID (String) - Employee ID
+ *    - EMPL_RCD (Number) - Employee Record Number
+ *    - ITEM_TYPE (String) - Fixed value: 'SRK_OVT_LOCK'
+ *    - ITEM_NBR (Number) - Sequence number
+ *    - COMPRATE (Number) - The compensation rate that exceeded limit
+ *    - MAX_SALARY (Number) - The maximum salary that was exceeded
+ *    - LABOUR_AGREEMENT (String) - The labour agreement used for validation
+ *    - CREATE_DTTM (DateTime) - Timestamp of record creation
+ *    - STATUS (String) - Status flag (e.g., 'N' = New, 'A' = Approved)
+ *
+ * 3. JOB Component Record Fields Required:
+ *    - COMPRATE - Compensation rate field
+ *    - EMPLID - Employee ID
+ *    - EMPL_RCD - Employee record number
+ *    - LABOUR_AGREEMENT - Labour agreement code (or link to retrieve it)
+ *
+ ******************************************************************************/
+
+/******************************************************************************
+ * TESTING CHECKLIST:
+ *
+ * 1. Test with comprate below maximum - should save successfully
+ * 2. Test with comprate equal to maximum - should save successfully
+ * 3. Test with comprate above maximum - should:
+ *    - Display error message
+ *    - Insert record in JPM_JP_ITEMS
+ *    - Prevent save (stay on page)
+ * 4. Test with missing labour agreement - should handle gracefully
+ * 5. Test with labour agreement not in config table - should handle gracefully
+ * 6. Test when comprate is not changed - should not trigger validation
+ * 7. Test with multiple changes in one save - should validate correctly
+ *
+ ******************************************************************************/
+
+/******************************************************************************
+ * ALTERNATIVE IMPLEMENTATION: If you want to ALLOW save but log the violation
+ *
+ * Use SavePreChg event instead of SaveEdit:
+ * - Remove the "Return False" statement
+ * - Keep the JPM_JP_ITEMS insert
+ * - Change MessageBox to Warning() for non-blocking message
+ * - This logs the violation but allows the transaction to complete
+ *
+ ******************************************************************************/
