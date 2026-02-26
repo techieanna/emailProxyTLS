@@ -1,0 +1,30 @@
+---
+- name: Apply PeopleTools patch
+  hosts: "{{ env }}"
+  gather_facts: false
+  vars:
+    resp_file: "{{ resp_file | default('') }}"
+  tasks:
+    - name: Stop PIA/WebLogic
+      ansible.builtin.shell: "/opt/oracle/psft/pt/scripts/stop_pia.sh {{ weblogic_domain }}"
+
+    - name: Stop Tuxedo domain
+      ansible.builtin.shell: "/opt/oracle/psft/pt/scripts/stop_tuxedo.sh {{ tuxedo_domain }}"
+
+    - name: Apply OPatch payload using response file when required
+      ansible.builtin.shell: >-
+        opatch apply -silent {{ patch_dir }}
+        {% if resp_file|length > 0 %}-ocmrf {{ resp_file }}{% endif %}
+      no_log: true
+
+    - name: Relink if required
+      ansible.builtin.shell: "/opt/oracle/psft/pt/scripts/relink.sh"
+
+    - name: Reconfigure with psadmin
+      ansible.builtin.shell: "psadmin -c configure -d {{ tuxedo_domain }}"
+
+    - name: Start Tuxedo
+      ansible.builtin.shell: "/opt/oracle/psft/pt/scripts/start_tuxedo.sh {{ tuxedo_domain }}"
+
+    - name: Start PIA/WebLogic
+      ansible.builtin.shell: "/opt/oracle/psft/pt/scripts/start_pia.sh {{ weblogic_domain }}"

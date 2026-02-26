@@ -1,0 +1,37 @@
+{
+  "auto_apply": {
+    "minimum_severity": ["CRITICAL"],
+    "require_approval_for": ["HIGH", "OPTIONAL"]
+  },
+  "promotion": {
+    "strategy": "progressive",
+    "wait_hours_between_envs": 4,
+    "require_validation_pass": true,
+    "notify": [
+      "https://notify.internal/api/patch-status"
+    ]
+  },
+  "rollback": {
+    "triggers": [
+      "validation_failed",
+      "service_not_started",
+      "security_control_regression"
+    ]
+  },
+  "enforcement": {
+    "hash_verification": true,
+    "immutable_audit_logs": true,
+    "lock_scope": "global_patch_lock"
+  },
+  "maintenance_windows": {
+    "enforced": true
+  },
+  "drift_detection": {
+    "enabled": true,
+    "fail_on_drift": true
+  },
+  "compliance": {
+    "sox_mode": true,
+    "retain_days": 365
+  }
+}

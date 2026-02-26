@@ -1,0 +1,60 @@
+{
+  "environments": [
+    {
+      "name": "DEV",
+      "order": 1,
+      "platform": "windows",
+      "db_engine": "sqlserver",
+      "hosts": ["dev-psft-win-01"],
+      "admin_host": "dev-admin-win-01",
+      "ps_home": "C:/pt/ps_home",
+      "ps_cfg_home": "C:/pt/ps_cfg_home",
+      "tuxedo_domain": "DEVAPP",
+      "weblogic_domain": "DEVPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sat 00:00-04:00 UTC"
+    },
+    {
+      "name": "TEST",
+      "order": 2,
+      "platform": "windows",
+      "db_engine": "sqlserver",
+      "hosts": ["test-psft-win-01"],
+      "admin_host": "test-admin-win-01",
+      "ps_home": "C:/pt/ps_home",
+      "ps_cfg_home": "C:/pt/ps_cfg_home",
+      "tuxedo_domain": "TESTAPP",
+      "weblogic_domain": "TESTPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sat 04:00-08:00 UTC"
+    },
+    {
+      "name": "UAT",
+      "order": 3,
+      "platform": "windows",
+      "db_engine": "sqlserver",
+      "hosts": ["uat-psft-win-01"],
+      "admin_host": "uat-admin-win-01",
+      "ps_home": "C:/pt/ps_home",
+      "ps_cfg_home": "C:/pt/ps_cfg_home",
+      "tuxedo_domain": "UATAPP",
+      "weblogic_domain": "UATPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sun 00:00-04:00 UTC"
+    },
+    {
+      "name": "PRE-PROD",
+      "order": 4,
+      "platform": "windows",
+      "db_engine": "sqlserver",
+      "hosts": ["pprod-psft-win-01"],
+      "admin_host": "pprod-admin-win-01",
+      "ps_home": "C:/pt/ps_home",
+      "ps_cfg_home": "C:/pt/ps_cfg_home",
+      "tuxedo_domain": "PPRODAPP",
+      "weblogic_domain": "PPRODPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sun 04:00-08:00 UTC"
+    }
+  ]
+}

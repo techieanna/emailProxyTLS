@@ -1,0 +1,48 @@
+{
+  "environments": [
+    {
+      "name": "DEV",
+      "order": 1,
+      "hosts": ["dev-psft-01"],
+      "ps_home": "/opt/oracle/psft/pt/ps_home",
+      "ps_cfg_home": "/opt/oracle/psft/pt/ps_cfg_home",
+      "tuxedo_domain": "DEVAPP",
+      "weblogic_domain": "DEVPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sat 00:00-04:00 UTC"
+    },
+    {
+      "name": "TEST",
+      "order": 2,
+      "hosts": ["test-psft-01"],
+      "ps_home": "/opt/oracle/psft/pt/ps_home",
+      "ps_cfg_home": "/opt/oracle/psft/pt/ps_cfg_home",
+      "tuxedo_domain": "TESTAPP",
+      "weblogic_domain": "TESTPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sat 04:00-08:00 UTC"
+    },
+    {
+      "name": "UAT",
+      "order": 3,
+      "hosts": ["uat-psft-01"],
+      "ps_home": "/opt/oracle/psft/pt/ps_home",
+      "ps_cfg_home": "/opt/oracle/psft/pt/ps_cfg_home",
+      "tuxedo_domain": "UATAPP",
+      "weblogic_domain": "UATPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sun 00:00-04:00 UTC"
+    },
+    {
+      "name": "PRE-PROD",
+      "order": 4,
+      "hosts": ["pprod-psft-01"],
+      "ps_home": "/opt/oracle/psft/pt/ps_home",
+      "ps_cfg_home": "/opt/oracle/psft/pt/ps_cfg_home",
+      "tuxedo_domain": "PPRODAPP",
+      "weblogic_domain": "PPRODPIA",
+      "peopletools_version": "8.59.12",
+      "maintenance_window": "Sun 04:00-08:00 UTC"
+    }
+  ]
+}
