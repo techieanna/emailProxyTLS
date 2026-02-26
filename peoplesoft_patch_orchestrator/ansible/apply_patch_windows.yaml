@@ -1,0 +1,33 @@
+---
+- name: Apply PeopleTools patch on Windows Server using WinRM
+  hosts: "{{ env }}"
+  gather_facts: false
+  vars:
+    ps_home: "{{ ps_home }}"
+    ps_cfg_home: "{{ ps_cfg_home }}"
+    patch_dir: "{{ patch_dir }}"
+  tasks:
+    - name: Stop WebLogic service
+      ansible.windows.win_shell: |
+        Stop-Service -Name "{{ weblogic_service }}" -Force -ErrorAction Stop
+
+    - name: Stop Tuxedo service
+      ansible.windows.win_shell: |
+        Stop-Service -Name "{{ tuxedo_service }}" -Force -ErrorAction Stop
+
+    - name: Apply PeopleTools patch binaries (placeholder)
+      ansible.windows.win_shell: |
+        Write-Host "Applying patch from {{ patch_dir }} to {{ ps_home }}"
+      no_log: true
+
+    - name: Reconfigure domain with PSADMIN (placeholder)
+      ansible.windows.win_shell: |
+        & "{{ ps_home }}\\bin\\client\\winx86\\psadmin.exe" -c configure -d {{ tuxedo_domain }}
+
+    - name: Start Tuxedo service
+      ansible.windows.win_shell: |
+        Start-Service -Name "{{ tuxedo_service }}"
+
+    - name: Start WebLogic service
+      ansible.windows.win_shell: |
+        Start-Service -Name "{{ weblogic_service }}"
